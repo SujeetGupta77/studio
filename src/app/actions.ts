@@ -64,7 +64,13 @@ export async function generateReviewAction(
 
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Bitbucket API error: ${response.status} ${errorText}`);
+        let errorMessage = `Bitbucket API error: ${response.status}`;
+        if (response.status === 401) {
+          errorMessage = `Authentication failed (401). Please check your username and App Password. The App Password must have 'pullrequest:read' permissions. API response: ${errorText}`;
+        } else {
+          errorMessage = `Bitbucket API error: ${response.status} ${errorText}`;
+        }
+        throw new Error(errorMessage);
     }
 
     const diff = await response.text();
@@ -131,7 +137,13 @@ export async function postReviewAction(prevState: PostReviewState, formData: For
         
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Bitbucket API error: ${response.status} ${errorText}`);
+            let errorMessage = `Bitbucket API error: ${response.status}`;
+            if (response.status === 401) {
+              errorMessage = `Authentication failed (401). Please check your username and App Password. The App Password must have 'pullrequest:write' permissions. API response: ${errorText}`;
+            } else {
+              errorMessage = `Bitbucket API error: ${response.status} ${errorText}`;
+            }
+            throw new Error(errorMessage);
         }
 
         return { message: 'Comment posted successfully!', id: prevState.id + 1 };
