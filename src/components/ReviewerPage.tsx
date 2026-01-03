@@ -6,10 +6,11 @@ import { generateReviewAction, ReviewState } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, LoaderCircle, Wand2 } from 'lucide-react';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { AlertTriangle, KeyRound, LoaderCircle, User, Wand2 } from 'lucide-react';
+import { useEffect, useRef, useTransition } from 'react';
 import { Skeleton } from './ui/skeleton';
 import ReviewDisplay from './ReviewDisplay';
+import { Label } from './ui/label';
 
 export default function ReviewerPage() {
   const initialState: ReviewState = { id: 0, review: null, prUrl: null, error: null };
@@ -31,10 +32,42 @@ export default function ReviewerPage() {
   return (
     <div className="space-y-6">
       <form action={handleFormAction} ref={formRef} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Bitbucket Username</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    id="username"
+                    name="username"
+                    placeholder="YourUsername"
+                    required
+                    className="pl-10"
+                    disabled={isPending}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="appPassword">App Password</Label>
+              <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    id="appPassword"
+                    name="appPassword"
+                    type="password"
+                    placeholder="••••••••••••••••"
+                    required
+                    className="pl-10"
+                    disabled={isPending}
+                />
+              </div>
+            </div>
+        </div>
+
         <div className="space-y-2">
-          <label htmlFor="prUrl" className="font-medium">
+          <Label htmlFor="prUrl" className="font-medium">
             Bitbucket PR URL
-          </label>
+          </Label>
           <Input
             id="prUrl"
             name="prUrl"
@@ -68,8 +101,13 @@ export default function ReviewerPage() {
         </div>
       )}
 
-      {state.review && state.prUrl && !isPending && (
-        <ReviewDisplay review={state.review} prUrl={state.prUrl} />
+      {state.review && state.prUrl && state.username && state.appPassword && !isPending && (
+        <ReviewDisplay 
+          review={state.review} 
+          prUrl={state.prUrl}
+          username={state.username}
+          appPassword={state.appPassword}
+        />
       )}
     </div>
   );

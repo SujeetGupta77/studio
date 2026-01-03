@@ -24,7 +24,7 @@ index 22b192d..9b9e3a3 100644
  import ReviewDisplay from './ReviewDisplay';
  
 -export default function ReviewerPage() {
-+export default function ReviewerPage() { // This is a great component!
++export default function ReviewerPage() {
    const initialState: ReviewState = { id: 0, review: null, prUrl: null, error: null };
    const [state, formAction] = useFormState(generateReviewAction, initialState);
    const [isPending, startTransition] = useTransition();
@@ -38,6 +38,8 @@ const bitbucketUrlSchema = z.string().url().regex(
 export type ReviewState = {
   review?: string | null;
   prUrl?: string | null;
+  username?: string | null;
+  appPassword?: string | null;
   error?: string | null;
   id: number;
 };
@@ -47,6 +49,8 @@ export async function generateReviewAction(
   formData: FormData
 ): Promise<ReviewState> {
   const url = formData.get('prUrl') as string;
+  const username = formData.get('username') as string;
+  const appPassword = formData.get('appPassword') as string;
 
   const validation = bitbucketUrlSchema.safeParse(url);
 
@@ -58,9 +62,17 @@ export async function generateReviewAction(
     };
   }
 
+  if (!username || !appPassword) {
+    return {
+      ...prevState,
+      error: 'Please provide both a username and an App Password.',
+      id: prevState.id + 1,
+    }
+  }
+
   try {
     // In a real app, you would fetch the diff from the Bitbucket API here.
-    console.log(`Fetching diff for PR: ${url}`);
+    console.log(`Fetching diff for PR: ${url} with user: ${username}`);
     const diff = MOCK_DIFF;
 
     const review = await generateReviewSummary(diff);
@@ -68,6 +80,8 @@ export async function generateReviewAction(
     return {
       review,
       prUrl: url,
+      username,
+      appPassword,
       error: null,
       id: prevState.id + 1,
     };
@@ -91,9 +105,11 @@ export type PostReviewState = {
 export async function postReviewAction(prevState: PostReviewState, formData: FormData): Promise<PostReviewState> {
     const review = formData.get('review') as string;
     const prUrl = formData.get('prUrl') as string;
+    const username = formData.get('username') as string;
+    const appPassword = formData.get('appPassword') as string;
 
-    if (!review || !prUrl) {
-        return { error: 'Missing review content or PR URL.', id: prevState.id + 1 };
+    if (!review || !prUrl || !username || !appPassword) {
+        return { error: 'Missing review content, PR URL, or credentials.', id: prevState.id + 1 };
     }
 
     try {
@@ -103,11 +119,25 @@ export async function postReviewAction(prevState: PostReviewState, formData: For
         }
         const [_, workspace, repo_slug, pull_request_id] = urlParts;
         
-        console.log(`Simulating POST comment to Bitbucket PR: ${prUrl}`);
+        console.log(`Simulating POST comment to Bitbucket PR: ${prUrl} as user ${username}`);
         console.log(`Workspace: ${workspace}, Repo: ${repo_slug}, PR ID: ${pull_request_id}`);
         console.log('--- COMMENT CONTENT ---');
         console.log(review);
         console.log('-----------------------');
+
+        // Here you would make the actual API call to Bitbucket
+        // const response = await fetch(`https://api.bitbucket.org/2.0/repositories/${workspace}/${repo_slug}/pullrequests/${pull_request_id}/comments`, {
+        //     method: 'POST',
+        //     headers: {
+        //         'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
+        //         'Content-Type': 'application/json',
+        //     },
+        //     body: JSON.stringify({ content: { raw: review } }),
+        // });
+        // if (!response.ok) {
+        //     const errorText = await response.text();
+        //     throw new Error(`Bitbucket API error: ${response.status} ${errorText}`);
+        // }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
