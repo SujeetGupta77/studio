@@ -2,12 +2,12 @@
 'use client';
 
 import { postReviewAction, PostReviewState } from "@/app/actions";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
 import { LoaderCircle, Send, CheckCircle } from "lucide-react";
-import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import Markdown from "./Markdown";
 
@@ -30,7 +30,7 @@ type ReviewDisplayProps = {
 
 export default function ReviewDisplay({ review, prUrl, username, appPassword }: ReviewDisplayProps) {
     const initialState: PostReviewState = { id: 0 };
-    const [state, formAction] = useFormState(postReviewAction, initialState);
+    const [state, formAction] = useActionState(postReviewAction, initialState);
     const { toast } = useToast();
 
     useEffect(() => {

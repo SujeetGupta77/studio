@@ -1,20 +1,19 @@
 
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState, useEffect, useRef, useTransition } from 'react';
 import { generateReviewAction, ReviewState } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, KeyRound, LoaderCircle, User, Wand2 } from 'lucide-react';
-import { useEffect, useRef, useTransition } from 'react';
 import { Skeleton } from './ui/skeleton';
 import ReviewDisplay from './ReviewDisplay';
 import { Label } from './ui/label';
 
 export default function ReviewerPage() {
-  const initialState: ReviewState = { id: 0, review: null, prUrl: null, error: null };
-  const [state, formAction] = useFormState(generateReviewAction, initialState);
+  const initialState: ReviewState = { id: 0, review: null, prUrl: null, error: null, username: null, appPassword: null };
+  const [state, formAction] = useActionState(generateReviewAction, initialState);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   
