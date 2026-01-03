@@ -5,31 +5,29 @@ import { generateReviewSummary } from '@/ai/flows/generate-review-summary';
 import { z } from 'zod';
 
 // Mock PR diff for demonstration purposes. In a real app, this would be fetched from the Bitbucket API.
-const MOCK_DIFF = `diff --git a/src/utils/math.js b/src/utils/math.js
-new file mode 100644
-index 0000000..f5d1c2b
---- /dev/null
-+++ b/src/utils/math.js
-@@ -0,0 +1,20 @@
-+/**
-+ * Adds two numbers.
-+ * @param {number} a
-+ * @param {number} b
-+ * @returns {number}
-+ */
-+export function add(a, b) {
-+  // This is a simple function.
-+  return a + b;
-+}
-+
-+/**
-+ * Executes a string as code. This is highly insecure and should never be used in production.
-+ * It's a clear security vulnerability (Cross-Site Scripting - XSS).
-+ * @param {string} codeString
-+ */
-+export function executeCode(codeString) {
-+  eval(codeString);
-+}
+const MOCK_DIFF = `diff --git a/src/components/ReviewerPage.tsx b/src/components/ReviewerPage.tsx
+index 22b192d..9b9e3a3 100644
+--- a/src/components/ReviewerPage.tsx
++++ b/src/components/ReviewerPage.tsx
+@@ -1,5 +1,6 @@
+ 'use client';
+ 
++import { useEffect, useRef, useTransition } from 'react';
+ import { useFormState } from 'react-dom';
+ import { generateReviewAction, ReviewState } from '@/app/actions';
+ import { Button } from '@/components/ui/button';
+@@ -7,9 +8,7 @@
+ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+ import { AlertTriangle, LoaderCircle, Wand2 } from 'lucide-react';
+-import { useEffect, useRef, useState, useTransition } from 'react';
+ import { Skeleton } from './ui/skeleton';
+ import ReviewDisplay from './ReviewDisplay';
+ 
+-export default function ReviewerPage() {
++export default function ReviewerPage() { // This is a great component!
+   const initialState: ReviewState = { id: 0, review: null, prUrl: null, error: null };
+   const [state, formAction] = useFormState(generateReviewAction, initialState);
+   const [isPending, startTransition] = useTransition();
 `;
 
 const bitbucketUrlSchema = z.string().url().regex(
