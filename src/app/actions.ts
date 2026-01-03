@@ -3,32 +3,7 @@
 
 import { generateReviewSummary } from '@/ai/flows/generate-review-summary';
 import { z } from 'zod';
-
-// Mock PR diff for demonstration purposes. In a real app, this would be fetched from the Bitbucket API.
-const MOCK_DIFF = `diff --git a/src/components/ReviewerPage.tsx b/src/components/ReviewerPage.tsx
-index 22b192d..9b9e3a3 100644
---- a/src/components/ReviewerPage.tsx
-+++ b/src/components/ReviewerPage.tsx
-@@ -1,5 +1,6 @@
- 'use client';
- 
-+import { useEffect, useRef, useTransition } from 'react';
- import { useFormState } from 'react-dom';
- import { generateReviewAction, ReviewState } from '@/app/actions';
- import { Button } from '@/components/ui/button';
-@@ -7,9 +8,7 @@
- import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
- import { AlertTriangle, LoaderCircle, Wand2 } from 'lucide-react';
--import { useEffect, useRef, useState, useTransition } from 'react';
- import { Skeleton } from './ui/skeleton';
- import ReviewDisplay from './ReviewDisplay';
- 
--export default function ReviewerPage() {
-+export default function ReviewerPage() {
-   const initialState: ReviewState = { id: 0, review: null, prUrl: null, error: null };
-   const [state, formAction] = useFormState(generateReviewAction, initialState);
-   const [isPending, startTransition] = useTransition();
-`;
+import { Buffer } from 'buffer';
 
 const bitbucketUrlSchema = z.string().url().regex(
   /^https:\/\/bitbucket\.org\/[^/]+\/[^/]+\/pull-requests\/\d+/,
@@ -71,9 +46,32 @@ export async function generateReviewAction(
   }
 
   try {
-    // In a real app, you would fetch the diff from the Bitbucket API here.
-    console.log(`Fetching diff for PR: ${url} with user: ${username}`);
-    const diff = MOCK_DIFF;
+    const urlParts = url.match(/bitbucket.org\/([^/]+)\/([^/]+)\/pull-requests\/(\d+)/);
+    if (!urlParts) {
+        return { ...prevState, error: 'Could not parse Bitbucket URL.', id: prevState.id + 1 };
+    }
+    const [_, workspace, repo_slug, pull_request_id] = urlParts;
+    
+    const diffUrl = `https://api.bitbucket.org/2.0/repositories/${workspace}/${repo_slug}/pullrequests/${pull_request_id}/diff`;
+
+    const authHeader = 'Basic ' + Buffer.from(`${username}:${appPassword}`).toString('base64');
+    
+    const response = await fetch(diffUrl, {
+        headers: {
+            'Authorization': authHeader,
+        },
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Bitbucket API error: ${response.status} ${errorText}`);
+    }
+
+    const diff = await response.text();
+
+    if (!diff) {
+        return { ...prevState, error: 'Could not retrieve PR diff. The PR might be empty or an error occurred.', id: prevState.id + 1 };
+    }
 
     const review = await generateReviewSummary(diff);
 
@@ -119,27 +117,22 @@ export async function postReviewAction(prevState: PostReviewState, formData: For
         }
         const [_, workspace, repo_slug, pull_request_id] = urlParts;
         
-        console.log(`Simulating POST comment to Bitbucket PR: ${prUrl} as user ${username}`);
-        console.log(`Workspace: ${workspace}, Repo: ${repo_slug}, PR ID: ${pull_request_id}`);
-        console.log('--- COMMENT CONTENT ---');
-        console.log(review);
-        console.log('-----------------------');
+        const commentsUrl = `https://api.bitbucket.org/2.0/repositories/${workspace}/${repo_slug}/pullrequests/${pull_request_id}/comments`;
+        const authHeader = 'Basic ' + Buffer.from(`${username}:${appPassword}`).toString('base64');
 
-        // Here you would make the actual API call to Bitbucket
-        // const response = await fetch(`https://api.bitbucket.org/2.0/repositories/${workspace}/${repo_slug}/pullrequests/${pull_request_id}/comments`, {
-        //     method: 'POST',
-        //     headers: {
-        //         'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
-        //         'Content-Type': 'application/json',
-        //     },
-        //     body: JSON.stringify({ content: { raw: review } }),
-        // });
-        // if (!response.ok) {
-        //     const errorText = await response.text();
-        //     throw new Error(`Bitbucket API error: ${response.status} ${errorText}`);
-        // }
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const response = await fetch(commentsUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content: { raw: review } }),
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Bitbucket API error: ${response.status} ${errorText}`);
+        }
 
         return { message: 'Comment posted successfully!', id: prevState.id + 1 };
 
