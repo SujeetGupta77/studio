@@ -1,7 +1,7 @@
 
 'use server';
 
-import { generateReviewSummary } from '@/ai/flows/generate-review-summary';
+import { generateReviewSummary, GenerateReviewSummaryInput } from '@/ai/flows/generate-review-summary';
 import btoa from 'btoa';
 import { z } from 'zod';
 
@@ -26,6 +26,7 @@ export async function generateReviewAction(
   const url = formData.get('prUrl') as string;
   const username = formData.get('username') as string;
   const appPassword = formData.get('appPassword') as string;
+  const projectContext = formData.get('projectContext') as string;
   
   const validation = bitbucketUrlSchema.safeParse(url);
 
@@ -72,7 +73,7 @@ export async function generateReviewAction(
         }
     }
 
-    const review = await generateReviewSummary(diff);
+    const review = await generateReviewSummary({ diff, projectContext });
 
     return {
       review,

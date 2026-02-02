@@ -10,6 +10,7 @@ import { AlertTriangle, KeyRound, LoaderCircle, User, Wand2 } from 'lucide-react
 import { Skeleton } from './ui/skeleton';
 import ReviewDisplay from './ReviewDisplay';
 import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 
 export default function ReviewerPage() {
   const initialState: ReviewState = { id: 0, review: null, prUrl: null, error: null, username: null, appPassword: null };
@@ -77,6 +78,18 @@ export default function ReviewerPage() {
             disabled={isPending}
           />
         </div>
+        
+        <div className="space-y-2">
+            <Label htmlFor="projectContext">Project Context (Optional)</Label>
+            <Textarea
+                id="projectContext"
+                name="projectContext"
+                placeholder="Provide high-level context, coding standards, or tech stack info to improve the review..."
+                className="min-h-[100px]"
+                disabled={isPending}
+            />
+        </div>
+
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending ? <LoaderCircle className="animate-spin" /> : <Wand2 />}
           <span className="ml-2">{isPending ? 'Analyzing...' : 'Generate Review'}</span>
