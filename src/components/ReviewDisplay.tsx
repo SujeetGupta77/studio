@@ -24,11 +24,9 @@ function PostButton() {
 type ReviewDisplayProps = {
     review: string;
     prUrl: string;
-    username: string;
-    appPassword: string;
 }
 
-export default function ReviewDisplay({ review, prUrl, username, appPassword }: ReviewDisplayProps) {
+export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
     const initialState: PostReviewState = { id: 0 };
     const [state, formAction] = useActionState(postReviewAction, initialState);
     const { toast } = useToast();
@@ -71,8 +69,6 @@ export default function ReviewDisplay({ review, prUrl, username, appPassword }: 
                         <form action={formAction}>
                             <input type="hidden" name="review" value={review} />
                             <input type="hidden" name="prUrl" value={prUrl} />
-                            <input type="hidden" name="username" value={username} />
-                            <input type="hidden" name="appPassword" value={appPassword} />
                             <PostButton />
                         </form>
                     )}
