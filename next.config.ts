@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+    serverExternalPackages: [
+      'express',
+      'import-in-the-middle',
+      'require-in-the-middle',
+      '@google-cloud/firestore', // Often needed for server-side Google Cloud SDKs
+    ],
 };
 
 export default nextConfig;
