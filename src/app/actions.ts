@@ -47,7 +47,8 @@ export async function generateReviewAction(
   }
 
   // Construct the API URL for the diff
-  const diffUrl = url.replace('/pull-requests/', '/!api/2.0/repositories/').replace('bitbucket.org', 'api.bitbucket.org') + '/diff';
+  const apiUrlBase = url.replace('https://bitbucket.org/', 'https://api.bitbucket.org/2.0/repositories/');
+  const diffUrl = `${apiUrlBase}/diff`;
 
   try {
     const response = await fetch(diffUrl, {
@@ -112,7 +113,8 @@ export async function postReviewAction(prevState: PostReviewState, formData: For
         return { error: 'Missing required data to post review.', id: prevState.id + 1 };
     }
 
-    const commentUrl = prUrl.replace('/pull-requests/', '/!api/2.0/repositories/').replace('bitbucket.org', 'api.bitbucket.org') + '/comments';
+    const apiUrlBase = prUrl.replace('https://bitbucket.org/', 'https://api.bitbucket.org/2.0/repositories/');
+    const commentUrl = `${apiUrlBase}/comments`;
 
     try {
         const response = await fetch(commentUrl, {
