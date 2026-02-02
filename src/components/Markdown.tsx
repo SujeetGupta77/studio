@@ -1,4 +1,3 @@
-
 'use client';
 
 type MarkdownProps = {
@@ -6,16 +5,16 @@ type MarkdownProps = {
 };
 
 // This is a simple parser for a subset of Markdown.
-// It supports headings (##, ###), lists (* or -), and inline code (`code`).
+// It supports headings (##, ###), lists (* or -), blockquotes (>), and inline code (`code`).
 export default function Markdown({ content }: MarkdownProps) {
   return (
-    <div className="space-y-2 text-sm max-w-none">
+    <div className="space-y-4 text-base max-w-none leading-relaxed">
       {content.split('\n').map((line, index) => {
         if (line.startsWith('## ')) {
           return (
             <h2
               key={index}
-              className="text-xl font-semibold mt-6 mb-3 pb-2 border-b"
+              className="text-2xl font-bold mt-8 mb-4 pb-2 border-b border-primary/30 text-primary"
             >
               {line.substring(3)}
             </h2>
@@ -23,15 +22,22 @@ export default function Markdown({ content }: MarkdownProps) {
         }
         if (line.startsWith('### ')) {
           return (
-            <h3 key={index} className="text-lg font-semibold mt-4 mb-2">
+            <h3 key={index} className="text-xl font-semibold mt-6 mb-2">
               {line.substring(4)}
             </h3>
           );
         }
+        if (line.startsWith('> ')) {
+            return (
+                <blockquote key={index} className="pl-4 border-l-4 border-muted-foreground/20 italic text-muted-foreground bg-muted/20 p-2 rounded-r-lg">
+                    {line.substring(2)}
+                </blockquote>
+            );
+        }
         if (line.startsWith('* ') || line.startsWith('- ')) {
           return (
             <div key={index} className="flex items-start pl-4">
-              <span className="mr-2 mt-1 text-primary">•</span>
+              <span className="mr-3 mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"></span>
               <p className="flex-1">{line.substring(2)}</p>
             </div>
           );
@@ -48,7 +54,7 @@ export default function Markdown({ content }: MarkdownProps) {
                     return (
                       <code
                         key={i}
-                        className="bg-muted text-foreground rounded px-1.5 py-1 font-mono text-sm mx-1"
+                        className="bg-muted text-accent-foreground rounded-md px-1.5 py-1 font-mono text-sm"
                       >
                         {part.slice(1, -1)}
                       </code>
@@ -60,7 +66,12 @@ export default function Markdown({ content }: MarkdownProps) {
             );
         }
 
-        return <p key={index}>{line || <br />}</p>;
+        // Handle empty lines as vertical space
+        if (line.trim() === '') {
+            return <div key={index} className="h-2"></div>;
+        }
+
+        return <p key={index}>{line}</p>;
       })}
     </div>
   );

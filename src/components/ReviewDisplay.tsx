@@ -7,7 +7,7 @@ import { useFormStatus } from "react-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
-import { LoaderCircle, Send, CheckCircle } from "lucide-react";
+import { LoaderCircle, Send, CheckCircle, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Markdown from "./Markdown";
 
@@ -51,16 +51,19 @@ export default function ReviewDisplay({ review, prUrl, username, appPassword }: 
 
 
     return (
-        <Card className="mt-6 border-primary/20 border-t-4">
+        <Card className="mt-6 border-primary/20 border-t-4 bg-gradient-to-b from-card to-background/20">
             <CardHeader>
-                <CardTitle>Review Analysis</CardTitle>
+                <CardTitle className="flex items-center gap-3">
+                    <FileText className="h-6 w-6 text-primary" />
+                    <span>Review Analysis</span>
+                </CardTitle>
             </CardHeader>
             <CardContent>
                 <Markdown content={review} />
                 <Separator className="my-6" />
                 <div className="flex justify-end">
                     {state.message ? (
-                        <div className="flex items-center space-x-2 text-green-600 font-semibold p-2 rounded-md bg-green-100">
+                        <div className="flex items-center space-x-2 text-green-600 font-semibold p-2 rounded-md bg-green-100 dark:bg-green-900/30 dark:text-green-400">
                            <CheckCircle className="h-5 w-5" />
                            <span>Review posted successfully!</span>
                         </div>
