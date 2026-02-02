@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -61,23 +62,23 @@ Mobile Dairy Web is an Angular-based dairy management system supporting multiple
 ## Core Architecture
 
 ### Module Structure
-- **Admin Dashboard** (\\\`src/app/dashboard/admin/\\\`): Main feature module with lazy-loaded submodules
-  - Key components in \\\`components/\\\` handle distinct business domains (collections, customers, invoicing)
+- **Admin Dashboard** (\`src/app/dashboard/admin/\`): Main feature module with lazy-loaded submodules
+  - Key components in \`components/\` handle distinct business domains (collections, customers, invoicing)
   - Each feature typically has its own routing module for code-splitting
-- **Shared Module** (\\\`src/app/shared/\\\`): Cross-cutting concerns
+- **Shared Module** (\`src/app/shared/\`): Cross-cutting concerns
   - Common components, services, and utilities
   - Authentication, API communication, and interceptors
 
 ### Data Flow Patterns
 1. **API Communication**:
-   - Core services in \\\`shared/services/api/\\\`
-   - \\\`ApiService\\\` for base HTTP operations
-   - \\\`ApiHelperService\\\` for common data transformations
+   - Core services in \`shared/services/api/\`
+   - \`ApiService\` for base HTTP operations
+   - \`ApiHelperService\` for common data transformations
    - Interceptor handles auth tokens and error management
 
 2. **Authentication**:
-   - JWT-based auth handled by \\\`AuthService\\\`
-   - Route guards in \\\`shared/services/auth/guard.service.ts\\\`
+   - JWT-based auth handled by \`AuthService\`
+   - Route guards in \`shared/services/auth/guard.service.ts\`
    - Session timeout management in app root
 
 3. **State Management**:
@@ -88,7 +89,7 @@ Mobile Dairy Web is an Angular-based dairy management system supporting multiple
 ## Development Workflows
 
 ### Environment Setup
-\\\`\\\`\\\`bash
+\`\`\`bash
 # Install dependencies (using pnpm)
 pnpm install
 
@@ -112,18 +113,18 @@ npm run build:staging-local
 npm run build:ios             # Capacitor sync
 npm run open:ios              # Open iOS project
 npm run run:ios               # Run on iOS
-\\\`\\\`\\\`
+\`\`\`
 
 ### Build Process
 - **Build Tool**: esbuild (ESBuild compiler, default from Angular 19)
 - **Module Format**: Standalone components (preferred over traditional NgModules)
 - **Environment-specific configuration** via file replacement in angular.json
-- **Version management** through \\\`update-version.js\\\` (major, minor, patch)
+- **Version management** through \`update-version.js\` (major, minor, patch)
 - **Organization-specific builds** with conditional logic:
-  - Laxmi: \\\`environment.isLaxmiBuild\\\`
-  - SKE: \\\`environment.isSkeBuild\\\`
+  - Laxmi: \`environment.isLaxmiBuild\`
+  - SKE: \`environment.isSkeBuild\`
 - **Compression**: gzipper applied to dist folder after build
-- **iOS builds**: Capacitor sync required: \\\`npm run build:ios\\\`
+- **iOS builds**: Capacitor sync required: \`npm run build:ios\`
 - **Package Manager**: pnpm for faster, more efficient dependency management
 
 ## Project Conventions
@@ -133,7 +134,7 @@ npm run run:ios               # Run on iOS
    - Preferred pattern in Angular 19
    - No NgModule declarations required
    - Import dependencies directly in component
-   - Example: \\\`src/app/dashboard/admin/components/collections/collections.component.ts\\\`
+   - Example: \`src/app/dashboard/admin/components/collections/collections.component.ts\`
 
 2. **Smart/Container Components**:
    - Handle data fetching and business logic
@@ -143,8 +144,8 @@ npm run run:ios               # Run on iOS
 3. **Presentational Components**:
    - Focus on UI rendering
    - Accept inputs, emit outputs
-   - Placed in \\\`shared/components/\\\`
-   - Example: \\\`shared/components/reports-data-table/\\\`
+   - Placed in \`shared/components/\`
+   - Example: \`shared/components/reports-data-table/\`
 
 ### Code Patterns
 1. **Routing**:
@@ -163,7 +164,7 @@ npm run run:ios               # Run on iOS
    - Toast notifications for user feedback
 
 ### UI/UX Standards
-1. **Loading States**: Use \\\`NgxUiLoader\\\` for consistent loading indicators
+1. **Loading States**: Use \`NgxUiLoader\` for consistent loading indicators
 2. **Responsive Design**: Mobile-first using Bootstrap grid
 3. **Internationalization**: All user-facing strings use translate pipe
 4. **Theming**: PrimeNG with Material preset, customized via SCSS
@@ -174,10 +175,10 @@ npm run run:ios               # Run on iOS
 3. **External Systems**: ERP integration for inventory and payments
 
 ## Common Gotchas
-1. **Organization-Specific Code**: Check \\\`environment.isLaxmiBuild\\\`/\\\`environment.isSkeBuild\\\`
-2. **Form Validation**: Always use \\\`FormHelper\\\` for consistent validation
-3. **API Error Handling**: Use \\\`ApiHelperService.handleError()\\\`
-4. **Route Guards**: Check permission constants in \\\`utils/userFeatures.ts\\\`
+1. **Organization-Specific Code**: Check \`environment.isLaxmiBuild\`/\`environment.isSkeBuild\`
+2. **Form Validation**: Always use \`FormHelper\` for consistent validation
+3. **API Error Handling**: Use \`ApiHelperService.handleError()\`
+4. **Route Guards**: Check permission constants in \`utils/userFeatures.ts\`
 
 ## Testing Guidelines
 1. Use Karma for unit tests with consistent patterns
@@ -186,41 +187,31 @@ npm run run:ios               # Run on iOS
 4. E2E tests with Protractor for critical flows
 `;
 
-    let prompt = \`You are an expert code reviewer for an Angular project. Your goal is to provide a concise, high-level summary of the changes in a pull request, identify potential issues, and suggest improvements. You must adhere to the coding standards and conventions outlined below.
+    let prompt = 'You are an expert code reviewer for an Angular project. Your goal is to provide a concise, high-level summary of the changes in a pull request, identify potential issues, and suggest improvements. You must adhere to the coding standards and conventions outlined below.'
+      + '\n---\n'
+      + systemInstructions
+      + '\n---\n'
+      + 'Analyze the following pull request diff:\n'
+      + '```diff\n'
+      + diff
+      + '\n```\n';
 
----
-\${systemInstructions}
----
-
-Analyze the following pull request diff:
-
-\\\`\\\`\\\`diff
-\${diff}
-\\\`\\\`\\\`
-\`;
 
     if (projectContext) {
-      prompt += \`
-In addition to the overall project conventions, please take the following specific context for THIS PR into account:
----
-\${projectContext}
----
-\`;
+      prompt += '\nIn addition to the overall project conventions, please take the following specific context for THIS PR into account:\n'
+        + '---\n'
+        + projectContext
+        + '\n---\n';
     }
 
-    prompt += \`
-Please structure your review with the following sections, ensuring your feedback aligns with the project's architecture and conventions:
-## Summary
-A brief, high-level overview of the changes and how they fit into the 'Mobile Dairy Web' project.
-
-## Potential Issues
-Point out any potential bugs, logic errors, or deviations from the established project conventions (e.g., not using Standalone Components, incorrect error handling).
-
-## Suggestions
-Offer suggestions for improvement, such as refactoring, using existing shared services, or aligning with the specified UI/UX standards.
-
-Provide your response in Markdown format.
-\`;
+    prompt += '\nPlease structure your review with the following sections, ensuring your feedback aligns with the project\'s architecture and conventions:\n'
+      + '## Summary\n'
+      + 'A brief, high-level overview of the changes and how they fit into the \'Mobile Dairy Web\' project.\n\n'
+      + '## Potential Issues\n'
+      + 'Point out any potential bugs, logic errors, or deviations from the established project conventions (e.g., not using Standalone Components, incorrect error handling).\n\n'
+      + '## Suggestions\n'
+      + 'Offer suggestions for improvement, such as refactoring, using existing shared services, or aligning with the specified UI/UX standards.\n\n'
+      + 'Provide your response in Markdown format.\n';
 
     const { text } = await ai.generate({
       prompt: prompt,
