@@ -3,13 +3,14 @@
 /**
  * @fileOverview A Genkit flow that generates a concise summary of a pull request diff.
  *
- * - generateReviewSummary - A function that generates the review summary.
+ * - generateReviewSummary - A function that orchestrates generating and refining the review summary.
  * - GenerateReviewSummaryInput - The input type for the generateReviewSummary function.
  * - GenerateReviewSummaryOutput - The return type for the generateReviewSummary function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { refineReviewSummary } from './refine-review-summary';
 
 const GenerateReviewSummaryInputSchema = z.object({
   diff: z.string().describe('The diff of the pull request.'),
@@ -20,18 +21,26 @@ const GenerateReviewSummaryInputSchema = z.object({
 });
 export type GenerateReviewSummaryInput = z.infer<typeof GenerateReviewSummaryInputSchema>;
 
-const GenerateReviewSummaryOutputSchema = z.string().describe('A concise summary of the pull request diff.');
+const GenerateReviewSummaryOutputSchema = z.string().describe('A concise and refined summary of the pull request diff.');
 export type GenerateReviewSummaryOutput = z.infer<typeof GenerateReviewSummaryOutputSchema>;
 
+// This function now orchestrates the two-step process.
 export async function generateReviewSummary(input: GenerateReviewSummaryInput): Promise<GenerateReviewSummaryOutput> {
-  return generateReviewSummaryFlow(input);
+  // Step 1: Generate the initial review.
+  const initialReview = await generateReviewSummaryFlow(input);
+  
+  // Step 2: Pass the initial review to the refinement agent.
+  const refinedReview = await refineReviewSummary(initialReview);
+
+  return refinedReview;
 }
 
+// This is the first agent (the PR reviewer). It's now an internal implementation detail.
 const generateReviewSummaryFlow = ai.defineFlow(
   {
     name: 'generateReviewSummaryFlow',
     inputSchema: GenerateReviewSummaryInputSchema,
-    outputSchema: GenerateReviewSummaryOutputSchema,
+    outputSchema: z.string(), // Output is just a string now
   },
   async ({ diff, projectContext }) => {
     let prompt = `You are an expert code reviewer. Your goal is to provide a concise, high-level summary of the changes in a pull request, identify potential issues, and suggest improvements.
