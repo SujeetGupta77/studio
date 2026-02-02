@@ -46,9 +46,15 @@ export async function generateReviewAction(
     }
   }
 
-  // Construct the API URL for the diff
-  const apiUrlBase = url.replace('https://bitbucket.org/', 'https://api.bitbucket.org/2.0/repositories/');
-  const diffUrl = `${apiUrlBase}/diff`;
+  // Construct the API URL from a URL like:
+  // https://bitbucket.org/workspace/repo/pull-requests/123
+  // to:
+  // https://api.bitbucket.org/2.0/repositories/workspace/repo/pullrequests/123
+  const apiUrl = url
+    .replace('https://bitbucket.org/', 'https://api.bitbucket.org/2.0/repositories/')
+    .replace('/pull-requests/', '/pullrequests/');
+
+  const diffUrl = `${apiUrl}/diff`;
 
   try {
     const response = await fetch(diffUrl, {
@@ -113,8 +119,11 @@ export async function postReviewAction(prevState: PostReviewState, formData: For
         return { error: 'Missing required data to post review.', id: prevState.id + 1 };
     }
 
-    const apiUrlBase = prUrl.replace('https://bitbucket.org/', 'https://api.bitbucket.org/2.0/repositories/');
-    const commentUrl = `${apiUrlBase}/comments`;
+    const apiUrl = prUrl
+      .replace('https://bitbucket.org/', 'https://api.bitbucket.org/2.0/repositories/')
+      .replace('/pull-requests/', '/pullrequests/');
+
+    const commentUrl = `${apiUrl}/comments`;
 
     try {
         const response = await fetch(commentUrl, {
