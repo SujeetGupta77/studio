@@ -1,43 +1,40 @@
 
 'use client';
 
-import { postReviewAction, PostReviewState } from "@/app/actions";
-import { useActionState, useEffect, useState, useMemo } from "react";
-import { useFormStatus } from "react-dom";
+import { postReviewAction } from "@/app/actions";
+import { useState, useMemo } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
-import { LoaderCircle, Send, CheckCircle, FileText, CheckSquare, Square } from "lucide-react";
+import { LoaderCircle, Send, CheckCircle, FileText, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Markdown from "./Markdown";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
-
-function PostButton({ disabled }: { disabled: boolean }) {
-    const { pending } = useFormStatus();
-    return (
-        <Button type="submit" disabled={pending || disabled} variant="default" className="shadow-md">
-            {pending ? <LoaderCircle className="animate-spin" /> : <Send />}
-            <span className="ml-2">{pending ? 'Posting...' : 'Post Selected to Bitbucket'}</span>
-        </Button>
-    )
-}
 
 type ReviewDisplayProps = {
     review: string;
     prUrl: string;
 }
 
+type ReviewItem = {
+    id: string;
+    text: string;
+    selected: boolean;
+    status: 'idle' | 'posting' | 'success' | 'error';
+};
+
 type ReviewSection = {
+    id: string;
     title: string;
     content: string;
-    items: { id: string; text: string; selected: boolean }[];
+    contentStatus: 'idle' | 'posting' | 'success' | 'error';
+    items: ReviewItem[];
 };
 
 export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
-    const initialState: PostReviewState = { id: 0 };
-    const [state, formAction] = useActionState(postReviewAction, initialState);
     const { toast } = useToast();
+    const [isBulkPosting, setIsBulkPosting] = useState(false);
 
     // Parse the review into sections and items
     const initialSections = useMemo(() => {
@@ -45,12 +42,14 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
         const lines = review.split('\n');
         let currentSection: ReviewSection | null = null;
 
-        lines.forEach((line, index) => {
+        lines.forEach((line) => {
             if (line.startsWith('## ')) {
                 if (currentSection) sections.push(currentSection);
                 currentSection = {
+                    id: `section-${sections.length}`,
                     title: line.substring(3).trim(),
                     content: '',
+                    contentStatus: 'idle',
                     items: []
                 };
             } else if (currentSection) {
@@ -59,7 +58,8 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                     currentSection.items.push({
                         id: `item-${sections.length}-${currentSection.items.length}`,
                         text: trimmed.substring(2),
-                        selected: true
+                        selected: true,
+                        status: 'idle'
                     });
                 } else if (trimmed !== '') {
                     currentSection.content += line + '\n';
@@ -72,53 +72,112 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
 
     const [sections, setSections] = useState<ReviewSection[]>(initialSections);
 
-    useEffect(() => {
-        if (state.message) {
-            toast({
-                title: "Success",
-                description: state.message,
-            });
-        }
-        if (state.error) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: state.error,
-            });
-        }
-    }, [state, toast]);
+    const handlePostIndividual = async (text: string, type: 'item' | 'content', sIdx: number, iIdx?: number) => {
+        if (!text.trim()) return;
 
-    const toggleItem = (sectionIndex: number, itemIndex: number) => {
+        // Update local state to show loading
         const newSections = [...sections];
-        newSections[sectionIndex].items[itemIndex].selected = !newSections[sectionIndex].items[itemIndex].selected;
+        if (type === 'item' && iIdx !== undefined) {
+            newSections[sIdx].items[iIdx].status = 'posting';
+        } else {
+            newSections[sIdx].contentStatus = 'posting';
+        }
         setSections(newSections);
+
+        const formData = new FormData();
+        formData.append('review', text);
+        formData.append('prUrl', prUrl);
+
+        try {
+            const result = await postReviewAction({ id: Date.now() }, formData);
+            
+            const updatedSections = [...sections];
+            if (result.error) {
+                if (type === 'item' && iIdx !== undefined) updatedSections[sIdx].items[iIdx].status = 'error';
+                else updatedSections[sIdx].contentStatus = 'error';
+                
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: result.error,
+                });
+            } else {
+                if (type === 'item' && iIdx !== undefined) updatedSections[sIdx].items[iIdx].status = 'success';
+                else updatedSections[sIdx].contentStatus = 'success';
+                
+                toast({
+                    title: "Success",
+                    description: "Comment posted to Bitbucket.",
+                });
+            }
+            setSections(updatedSections);
+        } catch (e) {
+            console.error(e);
+            const errorSections = [...sections];
+            if (type === 'item' && iIdx !== undefined) errorSections[sIdx].items[iIdx].status = 'error';
+            else errorSections[sIdx].contentStatus = 'error';
+            setSections(errorSections);
+        }
     };
 
-    const toggleSection = (sectionIndex: number) => {
-        const newSections = [...sections];
-        const allSelected = newSections[sectionIndex].items.every(item => item.selected);
-        newSections[sectionIndex].items.forEach(item => item.selected = !allSelected);
-        setSections(newSections);
-    };
-
-    const finalReview = useMemo(() => {
+    const handleBulkPost = async () => {
+        setIsBulkPosting(true);
         let output = '';
         sections.forEach(section => {
-            const selectedItems = section.items.filter(i => i.selected);
-            if (section.content.trim() || selectedItems.length > 0) {
+            const selectedItems = section.items.filter(i => i.selected && i.status !== 'success');
+            const shouldIncludeContent = section.content.trim() && section.contentStatus !== 'success';
+            
+            if (shouldIncludeContent || selectedItems.length > 0) {
                 output += `## ${section.title}\n`;
-                if (section.content.trim()) output += section.content.trim() + '\n\n';
+                if (shouldIncludeContent) output += section.content.trim() + '\n\n';
                 selectedItems.forEach(item => {
                     output += `* ${item.text}\n`;
                 });
                 output += '\n';
             }
         });
-        return output.trim();
-    }, [sections]);
 
-    const totalSelected = sections.reduce((acc, s) => acc + s.items.filter(i => i.selected).length, 0);
-    const hasSelection = totalSelected > 0 || sections.some(s => s.content.trim() !== '');
+        if (!output.trim()) {
+            toast({ title: "No new items selected", description: "All selected items might have been posted already." });
+            setIsBulkPosting(false);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('review', output.trim());
+        formData.append('prUrl', prUrl);
+
+        const result = await postReviewAction({ id: Date.now() }, formData);
+        
+        if (result.error) {
+            toast({ variant: "destructive", title: "Error", description: result.error });
+        } else {
+            toast({ title: "Success", description: "Selected points posted as a consolidated comment." });
+            // Mark all selected as success
+            const updatedSections = sections.map(s => ({
+                ...s,
+                contentStatus: s.content.trim() ? ('success' as const) : s.contentStatus,
+                items: s.items.map(i => i.selected ? { ...i, status: 'success' as const } : i)
+            }));
+            setSections(updatedSections);
+        }
+        setIsBulkPosting(false);
+    };
+
+    const toggleItem = (sIdx: number, iIdx: number) => {
+        const newSections = [...sections];
+        newSections[sIdx].items[iIdx].selected = !newSections[sIdx].items[iIdx].selected;
+        setSections(newSections);
+    };
+
+    const toggleSection = (sIdx: number) => {
+        const newSections = [...sections];
+        const allSelected = newSections[sIdx].items.every(item => item.selected);
+        newSections[sIdx].items.forEach(item => item.selected = !allSelected);
+        setSections(newSections);
+    };
+
+    const totalSelected = sections.reduce((acc, s) => acc + s.items.filter(i => i.selected && i.status !== 'success').length, 0);
 
     return (
         <Card className="mt-6 border-primary/20 border-t-4 bg-gradient-to-b from-card to-background/20 shadow-xl overflow-hidden">
@@ -129,15 +188,15 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                         <span>Review Analysis</span>
                     </div>
                     <div className="text-xs font-normal text-muted-foreground bg-background px-2 py-1 rounded-full border">
-                        {totalSelected} points selected
+                        {totalSelected} points pending
                     </div>
                 </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-                <div className="space-y-8">
+                <div className="space-y-10">
                     {sections.map((section, sIdx) => (
-                        <div key={sIdx} className="space-y-4">
-                            <div className="flex items-center justify-between group">
+                        <div key={section.id} className="space-y-4">
+                            <div className="flex items-center justify-between group border-b pb-2">
                                 <h3 className="text-lg font-bold text-primary flex items-center gap-2">
                                     {section.title}
                                 </h3>
@@ -154,16 +213,32 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                             </div>
                             
                             {section.content.trim() && (
-                                <div className="pl-2 border-l-2 border-muted py-1 italic text-muted-foreground text-sm">
-                                    <Markdown content={section.content} />
+                                <div className={`relative pl-4 border-l-2 border-muted py-2 group transition-all ${section.contentStatus === 'success' ? 'opacity-50' : ''}`}>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1 text-sm italic text-muted-foreground">
+                                            <Markdown content={section.content} />
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant={section.contentStatus === 'success' ? "outline" : "secondary"}
+                                            className="h-8 w-8 shrink-0 rounded-full"
+                                            disabled={section.contentStatus === 'posting' || section.contentStatus === 'success'}
+                                            onClick={() => handlePostIndividual(section.content, 'content', sIdx)}
+                                            title="Post summary text as comment"
+                                        >
+                                            {section.contentStatus === 'posting' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : 
+                                             section.contentStatus === 'success' ? <Check className="h-4 w-4 text-green-600" /> : <Send className="h-3.5 w-3.5" />}
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
 
-                            <div className="space-y-2 pl-2">
+                            <div className="space-y-3 pl-2">
                                 {section.items.map((item, iIdx) => (
                                     <div 
                                         key={item.id} 
-                                        className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
+                                        className={`flex items-start gap-3 p-3 rounded-lg border transition-all group/item ${
+                                            item.status === 'success' ? 'bg-green-50/30 border-green-100 opacity-60' :
                                             item.selected 
                                             ? 'bg-primary/5 border-primary/20' 
                                             : 'bg-muted/20 border-transparent opacity-60 hover:opacity-100'
@@ -174,6 +249,7 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                                             checked={item.selected} 
                                             onCheckedChange={() => toggleItem(sIdx, iIdx)}
                                             className="mt-1"
+                                            disabled={item.status === 'success'}
                                         />
                                         <Label 
                                             htmlFor={item.id} 
@@ -181,6 +257,17 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                                         >
                                             <Markdown content={item.text} />
                                         </Label>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className={`h-8 px-2 flex items-center gap-1.5 transition-all ${item.status === 'success' ? 'text-green-600' : 'opacity-0 group-hover/item:opacity-100'}`}
+                                            disabled={item.status === 'posting' || item.status === 'success'}
+                                            onClick={() => handlePostIndividual(`* ${item.text}`, 'item', sIdx, iIdx)}
+                                        >
+                                            {item.status === 'posting' ? <LoaderCircle className="h-3 w-3 animate-spin" /> : 
+                                             item.status === 'success' ? <><Check className="h-3 w-3" /> <span className="text-[10px] font-bold uppercase">Posted</span></> : 
+                                             <><Send className="h-3 w-3" /> <span className="text-[10px] font-bold uppercase">Post</span></>}
+                                        </Button>
                                     </div>
                                 ))}
                             </div>
@@ -188,25 +275,25 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                     ))}
                 </div>
 
-                <Separator className="my-8" />
+                <Separator className="my-10" />
                 
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="text-sm text-muted-foreground italic">
-                        {totalSelected === 0 ? "Select points above to post a comment." : "Selected points will be combined into a single comment."}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-4 rounded-xl bg-muted/20 border">
+                    <div className="space-y-1">
+                        <p className="text-sm font-semibold">Bulk Actions</p>
+                        <p className="text-xs text-muted-foreground italic">
+                            {totalSelected === 0 ? "All items posted or none selected." : `${totalSelected} selected items will be combined into one comment.`}
+                        </p>
                     </div>
                     
-                    {state.message ? (
-                        <div className="flex items-center space-x-2 text-green-600 font-semibold p-3 rounded-md bg-green-100 dark:bg-green-900/30 dark:text-green-400 border border-green-200">
-                           <CheckCircle className="h-5 w-5" />
-                           <span>Comment posted successfully!</span>
-                        </div>
-                    ) : (
-                        <form action={formAction}>
-                            <input type="hidden" name="review" value={finalReview} />
-                            <input type="hidden" name="prUrl" value={prUrl} />
-                            <PostButton disabled={!hasSelection} />
-                        </form>
-                    )}
+                    <Button 
+                        onClick={handleBulkPost} 
+                        disabled={isBulkPosting || totalSelected === 0} 
+                        variant="default" 
+                        className="min-w-[200px] shadow-lg"
+                    >
+                        {isBulkPosting ? <LoaderCircle className="animate-spin mr-2" /> : <Send className="mr-2 h-4 w-4" />}
+                        {isBulkPosting ? 'Posting...' : 'Post Selected Group'}
+                    </Button>
                 </div>
             </CardContent>
         </Card>
