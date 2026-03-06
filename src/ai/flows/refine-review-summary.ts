@@ -28,22 +28,19 @@ const refineReviewSummaryFlow = ai.defineFlow(
     outputSchema: RefineReviewSummaryOutputSchema,
   },
   async (initialReview) => {
-    const prompt = `You are a Principal Software Engineer acting as a quality filter. Your task is to review and refine an AI-generated pull request summary.
-
-The goal is to make the review more concise, ensure it has a professional and encouraging tone, and verify that the structure (Summary, Potential Issues, Suggestions) is clear. Add a final concluding sentence to wrap up the review positively.
-
-Do not alter the core technical points, but improve the language and presentation.
-
-Here is the initial review:
----
-${initialReview}
----
-
-Provide only the refined Markdown as your output.
-`;
+    const promptText = "You are a Principal Software Engineer acting as a quality filter. Your task is to review and refine an AI-generated pull request summary."
+      + "\n\nThe goal is to make the review more concise, ensure it has a professional and encouraging tone, and verify that the structure (Summary, Potential Issues, Suggestions) is clear."
+      + "\n\nCRITICAL: You must preserve the priority tags [High], [Medium], and [Low] in the Potential Issues section. These are used for UI badge rendering."
+      + "\n\nAdd a final concluding sentence to wrap up the review positively."
+      + "\n\nDo not alter the core technical points, but improve the language and presentation."
+      + "\n\nHere is the initial review:\n"
+      + "---\n"
+      + initialReview
+      + "\n---\n"
+      + "\nProvide only the refined Markdown as your output.\n";
 
     const { text } = await ai.generate({
-      prompt: prompt,
+      prompt: promptText,
       model: 'googleai/gemini-2.5-flash',
     });
     return text!;
