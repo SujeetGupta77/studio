@@ -32,7 +32,6 @@
     "src/components/ui/calendar.tsx",
     "src/components/ui/carousel.tsx",
     "src/components/ui/chart.tsx",
-    "src/components/ui/checkbox.tsx",
     "src/components/ui/collapsible.tsx",
     "src/components/ui/dialog.tsx",
     "src/components/ui/dropdown-menu.tsx",
