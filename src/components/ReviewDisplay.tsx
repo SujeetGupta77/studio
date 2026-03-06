@@ -1,4 +1,3 @@
-
 'use client';
 
 import { postReviewAction } from "@/app/actions";
@@ -6,7 +5,7 @@ import { useState, useMemo } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
-import { LoaderCircle, Send, CheckCircle, FileText, Check } from "lucide-react";
+import { LoaderCircle, Send, CheckCircle, FileText, Check, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Markdown from "./Markdown";
 import { Checkbox } from "./ui/checkbox";
@@ -20,8 +19,11 @@ type ReviewDisplayProps = {
 type ReviewItem = {
     id: string;
     text: string;
+    cleanText: string;
     selected: boolean;
     status: 'idle' | 'posting' | 'success' | 'error';
+    path?: string;
+    line?: string;
 };
 
 type ReviewSection = {
@@ -36,7 +38,6 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
     const { toast } = useToast();
     const [isBulkPosting, setIsBulkPosting] = useState(false);
 
-    // Parse the review into sections and items
     const initialSections = useMemo(() => {
         const sections: ReviewSection[] = [];
         const lines = review.split('\n');
@@ -55,11 +56,29 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
             } else if (currentSection) {
                 const trimmed = line.trim();
                 if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+                    const fullText = trimmed.substring(2);
+                    
+                    // Regex to extract file and line info: [File: path/to/file] [Line: 123]
+                    const fileMatch = fullText.match(/\[File:\s*([^\]]+)\]/);
+                    const lineMatch = fullText.match(/\[Line:\s*(\d+)\]/);
+                    
+                    const path = fileMatch ? fileMatch[1].trim() : undefined;
+                    const lineVal = lineMatch ? lineMatch[1].trim() : undefined;
+                    
+                    // Clean text removes the metadata tags for a cleaner display
+                    let cleanText = fullText;
+                    if (fileMatch) cleanText = cleanText.replace(fileMatch[0], '').trim();
+                    if (lineMatch) cleanText = cleanText.replace(lineMatch[0], '').trim();
+                    cleanText = cleanText.replace(/\s+/g, ' '); // remove double spaces
+
                     currentSection.items.push({
                         id: `item-${sections.length}-${currentSection.items.length}`,
-                        text: trimmed.substring(2),
+                        text: fullText,
+                        cleanText: cleanText,
                         selected: true,
-                        status: 'idle'
+                        status: 'idle',
+                        path,
+                        line: lineVal
                     });
                 } else if (trimmed !== '') {
                     currentSection.content += line + '\n';
@@ -72,10 +91,10 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
 
     const [sections, setSections] = useState<ReviewSection[]>(initialSections);
 
-    const handlePostIndividual = async (text: string, type: 'item' | 'content', sIdx: number, iIdx?: number) => {
+    const handlePostIndividual = async (item: ReviewItem | string, type: 'item' | 'content', sIdx: number, iIdx?: number) => {
+        const text = typeof item === 'string' ? item : item.cleanText;
         if (!text.trim()) return;
 
-        // Update local state to show loading
         const newSections = [...sections];
         if (type === 'item' && iIdx !== undefined) {
             newSections[sIdx].items[iIdx].status = 'posting';
@@ -87,36 +106,28 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
         const formData = new FormData();
         formData.append('review', text);
         formData.append('prUrl', prUrl);
+        
+        if (typeof item !== 'string') {
+            if (item.path) formData.append('path', item.path);
+            if (item.line) formData.append('line', item.line);
+        }
 
         try {
             const result = await postReviewAction({ id: Date.now() }, formData);
-            
             const updatedSections = [...sections];
-            if (result.error) {
-                if (type === 'item' && iIdx !== undefined) updatedSections[sIdx].items[iIdx].status = 'error';
-                else updatedSections[sIdx].contentStatus = 'error';
-                
-                toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: result.error,
-                });
-            } else {
-                if (type === 'item' && iIdx !== undefined) updatedSections[sIdx].items[iIdx].status = 'success';
-                else updatedSections[sIdx].contentStatus = 'success';
-                
-                toast({
-                    title: "Success",
-                    description: "Comment posted to Bitbucket.",
-                });
-            }
+            const status = result.error ? 'error' : 'success';
+            
+            if (type === 'item' && iIdx !== undefined) updatedSections[sIdx].items[iIdx].status = status;
+            else updatedSections[sIdx].contentStatus = status;
+            
+            toast({
+                variant: result.error ? "destructive" : "default",
+                title: result.error ? "Error" : "Success",
+                description: result.error || "Comment posted to Bitbucket.",
+            });
             setSections(updatedSections);
         } catch (e) {
             console.error(e);
-            const errorSections = [...sections];
-            if (type === 'item' && iIdx !== undefined) errorSections[sIdx].items[iIdx].status = 'error';
-            else errorSections[sIdx].contentStatus = 'error';
-            setSections(errorSections);
         }
     };
 
@@ -131,14 +142,14 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                 output += `## ${section.title}\n`;
                 if (shouldIncludeContent) output += section.content.trim() + '\n\n';
                 selectedItems.forEach(item => {
-                    output += `* ${item.text}\n`;
+                    output += `* ${item.cleanText}\n`;
                 });
                 output += '\n';
             }
         });
 
         if (!output.trim()) {
-            toast({ title: "No new items selected", description: "All selected items might have been posted already." });
+            toast({ title: "No new items selected" });
             setIsBulkPosting(false);
             return;
         }
@@ -149,32 +160,17 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
 
         const result = await postReviewAction({ id: Date.now() }, formData);
         
-        if (result.error) {
-            toast({ variant: "destructive", title: "Error", description: result.error });
-        } else {
-            toast({ title: "Success", description: "Selected points posted as a consolidated comment." });
-            // Mark all selected as success
-            const updatedSections = sections.map(s => ({
+        if (!result.error) {
+            toast({ title: "Consolidated comment posted." });
+            setSections(sections.map(s => ({
                 ...s,
                 contentStatus: s.content.trim() ? ('success' as const) : s.contentStatus,
                 items: s.items.map(i => i.selected ? { ...i, status: 'success' as const } : i)
-            }));
-            setSections(updatedSections);
+            })));
+        } else {
+            toast({ variant: "destructive", title: "Error", description: result.error });
         }
         setIsBulkPosting(false);
-    };
-
-    const toggleItem = (sIdx: number, iIdx: number) => {
-        const newSections = [...sections];
-        newSections[sIdx].items[iIdx].selected = !newSections[sIdx].items[iIdx].selected;
-        setSections(newSections);
-    };
-
-    const toggleSection = (sIdx: number) => {
-        const newSections = [...sections];
-        const allSelected = newSections[sIdx].items.every(item => item.selected);
-        newSections[sIdx].items.forEach(item => item.selected = !allSelected);
-        setSections(newSections);
     };
 
     const totalSelected = sections.reduce((acc, s) => acc + s.items.filter(i => i.selected && i.status !== 'success').length, 0);
@@ -196,40 +192,23 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                 <div className="space-y-10">
                     {sections.map((section, sIdx) => (
                         <div key={section.id} className="space-y-4">
-                            <div className="flex items-center justify-between group border-b pb-2">
-                                <h3 className="text-lg font-bold text-primary flex items-center gap-2">
-                                    {section.title}
-                                </h3>
-                                {section.items.length > 0 && (
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => toggleSection(sIdx)}
-                                    >
-                                        {section.items.every(i => i.selected) ? 'Deselect All' : 'Select All'}
-                                    </Button>
-                                )}
-                            </div>
+                            <h3 className="text-lg font-bold text-primary border-b pb-2">{section.title}</h3>
                             
                             {section.content.trim() && (
-                                <div className={`relative pl-4 border-l-2 border-muted py-2 group transition-all ${section.contentStatus === 'success' ? 'opacity-50' : ''}`}>
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex-1 text-sm italic text-muted-foreground">
-                                            <Markdown content={section.content} />
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            variant={section.contentStatus === 'success' ? "outline" : "secondary"}
-                                            className="h-8 w-8 shrink-0 rounded-full"
-                                            disabled={section.contentStatus === 'posting' || section.contentStatus === 'success'}
-                                            onClick={() => handlePostIndividual(section.content, 'content', sIdx)}
-                                            title="Post summary text as comment"
-                                        >
-                                            {section.contentStatus === 'posting' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : 
-                                             section.contentStatus === 'success' ? <Check className="h-4 w-4 text-green-600" /> : <Send className="h-3.5 w-3.5" />}
-                                        </Button>
+                                <div className={`relative pl-4 border-l-2 border-muted py-2 flex items-start justify-between gap-4 ${section.contentStatus === 'success' ? 'opacity-50' : ''}`}>
+                                    <div className="flex-1 text-sm italic text-muted-foreground">
+                                        <Markdown content={section.content} />
                                     </div>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-8 w-8 shrink-0 rounded-full"
+                                        disabled={section.contentStatus === 'posting' || section.contentStatus === 'success'}
+                                        onClick={() => handlePostIndividual(section.content, 'content', sIdx)}
+                                    >
+                                        {section.contentStatus === 'posting' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : 
+                                         section.contentStatus === 'success' ? <Check className="h-4 w-4 text-green-600" /> : <Send className="h-3.5 w-3.5" />}
+                                    </Button>
                                 </div>
                             )}
 
@@ -237,37 +216,48 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                                 {section.items.map((item, iIdx) => (
                                     <div 
                                         key={item.id} 
-                                        className={`flex items-start gap-3 p-3 rounded-lg border transition-all group/item ${
+                                        className={`flex flex-col gap-2 p-3 rounded-lg border transition-all ${
                                             item.status === 'success' ? 'bg-green-50/30 border-green-100 opacity-60' :
-                                            item.selected 
-                                            ? 'bg-primary/5 border-primary/20' 
-                                            : 'bg-muted/20 border-transparent opacity-60 hover:opacity-100'
+                                            item.selected ? 'bg-primary/5 border-primary/20' : 'bg-muted/20 border-transparent opacity-60'
                                         }`}
                                     >
-                                        <Checkbox 
-                                            id={item.id} 
-                                            checked={item.selected} 
-                                            onCheckedChange={() => toggleItem(sIdx, iIdx)}
-                                            className="mt-1"
-                                            disabled={item.status === 'success'}
-                                        />
-                                        <Label 
-                                            htmlFor={item.id} 
-                                            className="flex-1 cursor-pointer leading-relaxed text-sm font-normal"
-                                        >
-                                            <Markdown content={item.text} />
-                                        </Label>
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className={`h-8 px-2 flex items-center gap-1.5 transition-all ${item.status === 'success' ? 'text-green-600' : 'opacity-0 group-hover/item:opacity-100'}`}
-                                            disabled={item.status === 'posting' || item.status === 'success'}
-                                            onClick={() => handlePostIndividual(`* ${item.text}`, 'item', sIdx, iIdx)}
-                                        >
-                                            {item.status === 'posting' ? <LoaderCircle className="h-3 w-3 animate-spin" /> : 
-                                             item.status === 'success' ? <><Check className="h-3 w-3" /> <span className="text-[10px] font-bold uppercase">Posted</span></> : 
-                                             <><Send className="h-3 w-3" /> <span className="text-[10px] font-bold uppercase">Post</span></>}
-                                        </Button>
+                                        <div className="flex items-start gap-3">
+                                            <Checkbox 
+                                                id={item.id} 
+                                                checked={item.selected} 
+                                                onCheckedChange={() => {
+                                                    const news = [...sections];
+                                                    news[sIdx].items[iIdx].selected = !news[sIdx].items[iIdx].selected;
+                                                    setSections(news);
+                                                }}
+                                                className="mt-1"
+                                                disabled={item.status === 'success'}
+                                            />
+                                            <div className="flex-1 space-y-1">
+                                                <Label htmlFor={item.id} className="cursor-pointer leading-relaxed text-sm font-normal">
+                                                    <Markdown content={item.cleanText} />
+                                                </Label>
+                                                {item.path && (
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground bg-muted/50 w-fit px-1.5 py-0.5 rounded border">
+                                                        <MapPin className="h-2.5 w-2.5" />
+                                                        {item.path}{item.line ? `:${item.line}` : ''}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className={`h-8 px-2 flex items-center gap-1.5 ${item.status === 'success' ? 'text-green-600' : ''}`}
+                                                disabled={item.status === 'posting' || item.status === 'success'}
+                                                onClick={() => handlePostIndividual(item, 'item', sIdx, iIdx)}
+                                            >
+                                                {item.status === 'posting' ? <LoaderCircle className="h-3 w-3 animate-spin" /> : 
+                                                 item.status === 'success' ? <Check className="h-3 w-3" /> : <Send className="h-3 w-3" />}
+                                                <span className="text-[10px] font-bold uppercase">
+                                                    {item.status === 'posting' ? 'Posting' : item.status === 'success' ? 'Posted' : 'Post'}
+                                                </span>
+                                            </Button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -276,26 +266,17 @@ export default function ReviewDisplay({ review, prUrl }: ReviewDisplayProps) {
                 </div>
 
                 <Separator className="my-10" />
-                
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-4 rounded-xl bg-muted/20 border">
                     <div className="space-y-1">
-                        <p className="text-sm font-semibold">Bulk Actions</p>
-                        <p className="text-xs text-muted-foreground italic">
-                            {totalSelected === 0 ? "All items posted or none selected." : `${totalSelected} selected items will be combined into one comment.`}
-                        </p>
+                        <p className="text-sm font-semibold">Bulk Actions (Global Comment)</p>
+                        <p className="text-xs text-muted-foreground italic">Selected items will be combined into one activity feed comment.</p>
                     </div>
-                    
-                    <Button 
-                        onClick={handleBulkPost} 
-                        disabled={isBulkPosting || totalSelected === 0} 
-                        variant="default" 
-                        className="min-w-[200px] shadow-lg"
-                    >
+                    <Button onClick={handleBulkPost} disabled={isBulkPosting || totalSelected === 0} className="min-w-[200px] shadow-lg">
                         {isBulkPosting ? <LoaderCircle className="animate-spin mr-2" /> : <Send className="mr-2 h-4 w-4" />}
-                        {isBulkPosting ? 'Posting...' : 'Post Selected Group'}
+                        Post Selected Group
                     </Button>
                 </div>
             </CardContent>
         </Card>
-    )
+    );
 }
