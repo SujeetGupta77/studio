@@ -28,7 +28,27 @@ export async function generateReviewSummary(input: GenerateReviewSummaryInput): 
   return refinedReview;
 }
 
-const systemInstructions = "# AI Coding Assistant Instructions\n\n## Project Overview\nMobile Dairy Web is an Angular-based dairy management system. The application handles milk collection, farmer management, invoicing, and reporting.\n\n## Key Technologies\n- **Frontend**: Angular 19 with TypeScript (Standalone Components & esbuild)\n- **UI Libraries**: PrimeNG 19, Bootstrap 5, Angular Material 19\n- **Internationalization**: ngx-translate (16.x)\n- **Mobile**: Capacitor (iOS) - 8.x\n- **Package Manager**: pnpm\n\n## Core Architecture\n- **Admin Dashboard**: src/app/dashboard/admin/\n- **Shared Module**: src/app/shared/\n- **API Communication**: Core services in shared/services/api/ using ApiService.\n- **Authentication**: JWT-based auth via AuthService.\n- **State Management**: Service-based state using Angular DI.\n\n## Project Conventions\n1. **Standalone Components**: Preferred in Angular 19.\n2. **Forms**: Mix of template-driven and reactive. Use FormHelper.\n3. **Error Handling**: HTTP interceptors and ApiHelperService.handleError().\n4. **UI/UX**: Use NgxUiLoader for loading states. All strings use translate pipe.\n";
+const systemInstructions = "# AI Coding Assistant Instructions\n\n"
+  + "## Project Overview\n"
+  + "Mobile Dairy Web is an Angular-based dairy management system supporting multiple organizations (Laxmi, SKE, Staging).\n\n"
+  + "## Key Technologies\n"
+  + "- **Frontend**: Angular 19 with TypeScript (Standalone Components & esbuild)\n"
+  + "- **UI Libraries**: PrimeNG 19, Bootstrap 5, Angular Material 19\n"
+  + "- **Internationalization**: ngx-translate (16.x)\n"
+  + "- **Mobile**: Capacitor (iOS) - 8.x\n"
+  + "- **Package Manager**: pnpm\n\n"
+  + "## Core Architecture\n"
+  + "- **Admin Dashboard**: src/app/dashboard/admin/ (Lazy-loaded feature modules)\n"
+  + "- **Shared Module**: src/app/shared/ (Common components, services, and utilities)\n"
+  + "- **API Communication**: Core services in shared/services/api/ using ApiService and ApiHelperService.\n"
+  + "- **Authentication**: JWT-based auth via AuthService and GuardService.\n"
+  + "- **State Management**: Service-based state using Angular DI.\n\n"
+  + "## Project Conventions\n"
+  + "1. **Standalone Components**: Required for new code in Angular 19.\n"
+  + "2. **Forms**: Use FormHelper for validation.\n"
+  + "3. **Error Handling**: Use ApiHelperService.handleError().\n"
+  + "4. **UI/UX**: Use NgxUiLoader for loading states. All strings use translate pipe.\n"
+  + "5. **Organization Logic**: Check environment.isLaxmiBuild or isSkeBuild for conditional logic.\n";
 
 const generateReviewSummaryFlow = ai.defineFlow(
   {
@@ -39,9 +59,9 @@ const generateReviewSummaryFlow = ai.defineFlow(
   async ({ diff, projectContext }) => {
 
     let promptText = "You are an expert code reviewer. Provide a concise summary and identify issues categorized by priority ([High], [Medium], [Low])."
-      + "\n\nCRITICAL: For every point in 'Potential Issues', you MUST identify the file path and the line number from the diff if possible."
-      + "\nFormat issues exactly like this: * [Priority] [File: path/to/file.ts] [Line: 123] Description of the issue."
-      + "\nIf you cannot find a specific line, just use [File: path/to/file.ts]."
+      + "\n\nCRITICAL: For every point in 'Potential Issues', you MUST identify the file path and the line number from the diff."
+      + "\nFormat issues exactly like this: * [Priority] [File: path/to/file.ts] [Line: 123] Problem description. **Suggestion:** Concrete fix or improvement code/guidance."
+      + "\n\nCRITICAL: Ensure the Suggestion is part of the SAME bullet point as the issue. This allows us to post them as a single inline comment."
       + "\n\n---\n"
       + systemInstructions
       + "\n---\n"
@@ -56,11 +76,11 @@ const generateReviewSummaryFlow = ai.defineFlow(
 
     promptText += "\nStructure:\n"
       + "## Summary\n"
-      + "High level overview.\n\n"
+      + "High level overview of the changes.\n\n"
       + "## Potential Issues\n"
-      + "List issues using the [Priority] [File: path] [Line: num] format.\n\n"
-      + "## Suggestions\n"
-      + "Improvements and best practices.\n";
+      + "List localized issues using the format: * [Priority] [File: path] [Line: num] Description. **Suggestion:** Fix details.\n\n"
+      + "## Generic Suggestions\n"
+      + "Broad architectural advice, best practices, or global improvements not tied to a single line.\n";
 
     const { text } = await ai.generate({
       prompt: promptText,

@@ -29,10 +29,13 @@ const refineReviewSummaryFlow = ai.defineFlow(
   },
   async (initialReview) => {
     const promptText = "You are a Principal Software Engineer acting as a quality filter. Your task is to review and refine an AI-generated pull request summary."
-      + "\n\nThe goal is to make the review more concise, ensure it has a professional and encouraging tone, and verify that the structure (Summary, Potential Issues, Suggestions) is clear."
-      + "\n\nCRITICAL: You must preserve the priority tags [High], [Medium], and [Low] in the Potential Issues section. These are used for UI badge rendering."
-      + "\n\nAdd a final concluding sentence to wrap up the review positively."
-      + "\n\nDo not alter the core technical points, but improve the language and presentation."
+      + "\n\nThe goal is to make the review more concise, professional, and helpful. "
+      + "\n\nCRITICAL REQUIREMENTS:"
+      + "\n1. Preserve priority tags [High], [Medium], and [Low]."
+      + "\n2. Preserve file/line metadata like [File: path/to/file.ts] [Line: 123]."
+      + "\n3. Ensure that in 'Potential Issues', the description and the **Suggestion:** are kept together in the same bullet point."
+      + "\n4. Maintain the structure: Summary, Potential Issues, and Generic Suggestions."
+      + "\n5. Add a final positive concluding sentence."
       + "\n\nHere is the initial review:\n"
       + "---\n"
       + initialReview
